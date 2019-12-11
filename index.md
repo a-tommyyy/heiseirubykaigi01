@@ -1,6 +1,7 @@
 ---
 theme: gaia
 size: 4:3
+paginate: true
 style: |
   section h2 {
     text-align: center;
@@ -28,20 +29,20 @@ Akifumi Tomiyama
 
 ## Rustとは
 
-![width:820px](img/whatisrust.png)
+![width:820px](./img/whatisrust.png)
 
 <!--
-footer: https://ja.wikipedia.org/wiki/Rust_(%E3%83%97%E3%83%AD%E3%82%B0%E3%83%A9%E3%83%9F%E3%83%B3%E3%82%B0%E8%A8%80%E8%AA%9E)
+_footer: https://www.rust-lang.org/
 -->
 
 ---
 
 ## Rustの特徴
 
-- 実行速度が早い
-- メモリ，スレッド安全 （所有権，参照と借用）
-- パターンマッチ，代数的データ型など
-- パッケージマネージャ（cargo） ...etc
+- 速度・安全性・並列性を重視した言語
+  - 所有権，参照と借用
+  - コンパイラの強力なサポート
+  - ジェネリクスなどの型システム
 
 ```
 fn main() {
@@ -52,21 +53,21 @@ fn main() {
 //=> error[E0382]: borrow of moved value: `foo`
 ```
 
-<!-- footer: '' -->
+---
+
+## 今日話すこと
+
+- Rustで実装したコードをRubyから呼び出したい
+  - Ruby
+    - 高い柔軟性と書きやすさ
+  - Rust
+    - 高い安全性と速度
+
+この2つの言語の良いところをあわせてより良いアプリケーション開発をしたい🥳
 
 ---
 
-## RustでGemを作る動機
-
-Rubyが苦手なところをRustで補いたい
-- Rubyの書きやすさ
-- Rustの高速性, 安全性
-
-2つの言語の良いところをあわせて開発したい
-
----
-
-## Rubyから他言語を使う方法
+## RubyからRustを呼び出す方法
 
 #### 拡張ライブラリ
 公開されているCのAPIを使用する方法
@@ -79,9 +80,9 @@ https://github.com/ffi/ffi
 
 ---
 
-## 今回実装するもの
+## 今回実装したもの
 
-`String#start_with?`,`String#end_with?`と同等のものをSymbolクラスに実装する
+`String#start_with?`,`end_with?`と同等のものをSymbolクラスに拡張するgemを作成する
 ```ruby
 :some_symbol.start_with?(:some)   #=> true
 :some_symbol.start_with?(:symbol) #=> false
@@ -94,29 +95,32 @@ https://github.com/atomiyama/rusty_symbol
 
 ---
 
-## やること
+## 今回実装したもの
+Rustの関数`starts_with`, `ends_with`を使って
 `Symbol#start_with?`, `Symbol#end_with?`を定義する
 
 ![width:820px](img/starts_with.png)
+
 <!--
-footer: https://doc.rust-lang.org/std/primitive.str.html#method.starts_with
+_footer: https://doc.rust-lang.org/std/primitive.str.html#method.starts_with
 -->
 
 ---
 
-<!-- footer: '' -->
+<!-- _class: lead -->
+# gemを作っていく
+
+---
+
 ## gemを作るには
 
 1. gemプロジェクトの作成
-```bash
-> bundle gem GEM_NAME
-```
 
 2. ビルド周りの設定
-`GEM_NAME.gemspec`, `Rakefile`
 
 3. 実装
-Rust書く〜〜😇
+
+4. 公開
 
 ---
 
@@ -131,15 +135,11 @@ Rust書く〜〜😇
 > bundle gem rusty_symbol --ext
 ```
 - rake-compiler
-C拡張ではrake compilerが使えるがrustは未サポート
+rake compilerはC拡張のビルドをサポート
+rustは未サポート
 
 - Thermite
-RustベースのRuby拡張のビルドを支援してくれるライブラリ
-
----
-
-<!-- _class: lead -->
-# 2. ビルド周りの設定
+RustベースのRuby拡張のビルドを支援
 
 ---
 
@@ -149,11 +149,18 @@ https://github.com/malept/thermite
 
 ---
 
+<!-- _class: lead -->
+# 2. ビルド周りの設定
+
+---
+
 ## ビルド周りの設定
 
 [@sinsoku_listy](https://twitter.com/sinsoku_listy)さんの発表を参考にしました
 
 ![width:800px](img/mrsinsoku.png)
+
+<!-- _footer: https://speakerdeck.com/sinsoku/how-to-make-a-gem-with-rust -->
 
 ---
 
@@ -174,6 +181,17 @@ Gem::Specification.new do |spec|
 end
 
 ```
+
+---
+
+## ビルド周りの設定
+
+- 共有ライブラリ
+
+|| Dynamic Linking | Dynamic Loading |
+| ---- | ---- | ---- |
+| linux | .so | .so |
+| macOS | .dylib | .bundle |
 
 ---
 
@@ -230,22 +248,32 @@ task :default => [:clobber, "thermite:build", :spec]
 
 ---
 
+<!-- _class: lead -->
+# 3. 実装
+
+---
+
 ## Cargoでプロジェクトを作成
+
+Rustで実装をするためにcargoでプロジェクトを作成する
 
 ```bash
 # ライブラリテンプレートの生成
 > cargo init --lib
-```
+     Created library package
 
-- Cargo.toml
-- src/lib.rs
-が作成される.
+> git status -s
+M .gitignore
+?? Cargo.toml
+?? src/
+```
 
 ---
 
 ## Cargo.tomlの設定
 
 libcはRustにCの型定義を提供してくれます．
+.gemspecに似てる
 
 ```toml
 [package]
@@ -261,28 +289,31 @@ crate-type = ["cdylib"]
 [dependencies]
 libc = "*"
 ```
-
 ---
 
-## ビルドしてみる
-
-これでやればビルドが通るようになりました．
+## Hello world
+`rake build`を実行すると`lib/rusty_symbol/rusty_symbol.bundle`ができる.
 
 ```bash
 ❯ rake build
 checking for cargo... yes
 ...
+   Compiling rusty_symbol v0.1.0 (/path/to/rusty_symbol)
+    Finished release [optimized] target(s) in 1.36s
 rusty_symbol 0.1.0 built to pkg/rusty_symbol-0.1.0.gem.
 ```
 
 ---
 
-<!-- _class: lead -->
-# 3. Rust書く〜〜😇
-
----
-
 ## Hello world
+requireされた時
+`lib/rusty_symbol/rusty_symbol.bundle`の
+`Init_rusty_symbol`が呼び出される．
+
+```ruby
+# lib/rusty_symbol.rb
+require "rusty_symbol/rusty_symbol"
+```
 ```rust
 // src/lib.rs
 #[no_mangle]
@@ -290,25 +321,36 @@ pub extern "C" fn Init_rusty_symbol() {
   println!("hello 平成Ruby会議01");
 }
 ```
-```bash
-> rake build
-
-> ls lib/rusty_symbol/rusty_symbol.bundle
-lib/rusty_symbol/rusty_symbol.bundle
-
-> bin/console
-hello 平成Ruby会議01
-```
-<!--
-footer: 'branch: hello_world'
--->
 
 ---
 
-<!-- footer: '' -->
-## 今回実装するもの
+## Hello world
 
-`String#start_with?`,`String#end_with?`と同等のものをSymbolクラスに実装する
+```bash
+# コンパイル
+> rake build
+
+# .bundleが生成される
+> ls lib/rusty_symbol/rusty_symbol.bundle
+lib/rusty_symbol/rusty_symbol.bundle
+
+# 実行
+> bin/console
+hello 平成Ruby会議01
+[1] pry(main)>
+```
+<!-- _footer: 'branch: hello_world' -->
+
+---
+
+<!-- _class: lead -->
+# 今回実装したいものは
+
+---
+
+## Symbol#start_with?
+
+`String#start_with?`(`end_with?`)と同等の挙動をするものをSymbolクラスに移植
 ```ruby
 :some_symbol.start_with?(:some)   #=> true
 :some_symbol.start_with?(:symbol) #=> false
@@ -319,17 +361,23 @@ footer: 'branch: hello_world'
 
 ---
 
-## やること
-`Symbol#start_with?`, `Symbol#end_with?`を定義する
+## 実装ステップ
+
+1. Rubyの文字列をRustのStringに変換する
+2. `start_with?`, `end_with?`を実装
+3. Symbolクラスを拡張する
 
 ![width:820px](img/starts_with.png)
-<!--
-footer: https://doc.rust-lang.org/std/primitive.str.html#method.starts_with
--->
+<!-- _footer: https://doc.rust-lang.org/std/primitive.str.html#method.starts_with -->
 
 ---
 
-## RubyはVALUE
+<!-- _class: lead -->
+# 1. Rubyの文字列をRustの文字列に変換する
+
+---
+
+## Ruby ObjectはVALUEで構造体
 
 ```c
 // ruby.h
@@ -337,39 +385,160 @@ footer: https://doc.rust-lang.org/std/primitive.str.html#method.starts_with
 typedef unsigned long VALUE;
 ```
 
-![width:820px](img/rubybasic.png)
-
-<!--
-footer: https://github.com/ruby/ruby/blob/master/doc/extension.ja.rdoc#%E5%9F%BA%E7%A4%8E%E7%9F%A5%E8%AD%98
- -->
+![width:820px](img/rstring.png)
 
 ---
 
-## Ruby C API
-![width:820px](img/rb_define_method.png)
-<!--
-footer: https://docs.ruby-lang.org/ja/latest/function/rb_define_method.html
--->
-
+<!-- _class: lead -->
+## Symbolはちょっと違う
 
 ---
 
-## 関数シグネチャをRustで定義
-`rb_define_method`を定義する
+## SymbolはID
 
-```rust
-extern crate libc;
-use libc::{ c_ulong };
+- Symbol objectのVALUEは構造体を指すポインタではない
+- このVALUEはID型の整数値
+- IDからCのcharが取り出せる
+- **シンボルは文字列の皮を被った整数値**
 
-type VALUE = c_ulong;
+```c
+// https://github.com/ruby/ruby/blob/master/include/ruby/ruby.h#L103
+typedef unsigned long ID;
+```
 
-extern {
-  fn rb_define_method(klass: VALUE,
-                      name: *const c_char,
-                      func: c_func,
-                      argc: c_int);
+<!-- _footer: 'http://i.loveruby.net/ja/rhg/book/object.html' -->
+
+---
+
+## シンボルをRust Stringに変換
+1. VALUEをIDに変換
+2. IDからCの文字列ポインタを取得
+3. Cの文字列をRustのStringに変換
+
+---
+
+## シンボルをRust Stringに変換
+1. VALUEをIDに変換
+
+```c
+// https://github.com/ruby/ruby/blob/master/symbol.c#L747-L772
+ID rb_sym2id(VALUE sym) {
+...
 }
 ```
+
+```rust
+// src/lib.rs
+let id: ID = unsafe { rb_sym2id(rb_self) };
+```
+
+---
+
+## シンボルをRust Stringに変換
+
+2. IDからCの文字列を取得
+```c
+// https://github.com/ruby/ruby/blob/master/symbol.c#L800-L813
+const char * rb_id2name(ID id) {
+...
+}
+```
+
+```rust
+// src/lib.rs
+let cstr: *const c_char = unsafe { rb_id2name(id) };
+```
+
+---
+
+## シンボルをRust Stringに変換
+
+3. Cの文字列をRustのStringに変換
+
+```rust
+// src/lib.rs
+let rstr: String = unsafe {
+  CStr::from_ptr(cstr).to_string_lossy().into_owned()
+};
+
+```
+
+---
+
+<!-- _class: lead -->
+# 2. `start_with?`, `end_with?`を実装
+
+---
+
+## start_with?を実装
+1. レシーバと引数を全てRust Stringに変換
+2. 与えられた可変長の文字列にstarts_withを実行
+3. マッチしたらTrue，なければFalseを返す
+
+---
+
+## start_with?
+
+```rust
+extern fn rb_sym_start_with(argc: c_int, argv: *const VALUE, rb_self: VALUE) -> VALUE {
+  // if no arguments return false
+  if argc == 0 { return Boolean::False as VALUE };
+
+  // parse variable arguments into vec.
+  let argv = unsafe { slice::from_raw_parts(argv, argc as usize).to_vec() };
+
+  // transform Symbol into String
+  let id: ID = unsafe { rb_sym2id(rb_self) };
+  let cstr: *const c_char = unsafe { rb_id2name(id) };
+  let rstr: String = unsafe { CStr::from_ptr(cstr).to_string_lossy().into_owned() };
+
+  for arg in argv {
+    let id: ID = unsafe { rb_sym2id(arg) };
+    let arg_cstr: *const c_char = unsafe { rb_id2name(id) };
+    let arg_str: String = unsafe {
+      CStr::from_ptr(arg_cstr).to_string_lossy().into_owned()
+    };
+
+    if rstr.starts_with(&arg_str) { return Boolean::True as VALUE }
+  };
+  Boolean::False as VALUE
+}
+```
+
+---
+
+## end_with?
+
+```rust
+extern fn rb_sym_end_with(argc: c_int, argv: *const VALUE, rb_self: VALUE) -> VALUE {
+  // if no arguments return false
+  if argc == 0 { return Boolean::False as VALUE };
+
+  // parse variable arguments into vec.
+  let argv = unsafe { slice::from_raw_parts(argv, argc as usize).to_vec() };
+
+  // transform Symbol into String
+  let id: ID = unsafe { rb_sym2id(rb_self) };
+  let cstr: *const c_char = unsafe { rb_id2name(id) };
+  let rstr: String = unsafe { CStr::from_ptr(cstr).to_string_lossy().into_owned() };
+
+  for arg in argv {
+    let id: ID = unsafe { rb_sym2id(arg) };
+    let arg_cstr: *const c_char = unsafe { rb_id2name(id) };
+    let arg_str: String = unsafe {
+      CStr::from_ptr(arg_cstr).to_string_lossy().into_owned()
+    };
+
+    if rstr.ends_with(&arg_str) { return Boolean::True as VALUE }
+  };
+  Boolean::False as VALUE
+}
+```
+
+---
+
+<!-- _class: lead -->
+# 3. Symbolクラスを拡張する
 
 ---
 
@@ -391,7 +560,158 @@ extern {
 }
 ```
 
-<!--
-footer: https://github.com/ruby/ruby/blob/master/string.c#L11369
--->
+<!-- _footer: https://github.com/ruby/ruby/blob/master/string.c#L11369 -->
+
+---
+
+## rb_define_method
+![width:820px](img/rb_define_method.png)
+
+<!-- _footer: https://docs.ruby-lang.org/ja/latest/function/rb_define_method.html -->
+
+---
+
+## 関数シグネチャをRustで定義
+`rb_define_method`を定義する
+
+```rust
+extern crate libc;
+use libc::{ c_ulong, c_int, c_char };
+
+type VALUE = c_ulong;
+type c_func = *const void;
+
+extern {
+  fn rb_define_method(klass: VALUE,
+                      name: *const c_char,
+                      func: c_func,
+                      argc: c_int);
+}
+```
+
+---
+
+## Symbolクラスを拡張する
+```rust
+#[allow(non_snake_case)]
+#[no_mangle]
+pub extern "C" fn Init_rusty_symbol() {
+  let sym_start_with = CString::new("start_with?").unwrap();
+  let sym_end_with   = CString::new("end_with?").unwrap();
+
+  unsafe {
+    rb_define_method(rb_cSymbol,
+                     sym_start_with.as_ptr(),
+                     rb_sym_start_with as c_func, -1);
+    rb_define_method(rb_cSymbol,
+                     sym_end_with.as_ptr(),
+                     rb_sym_end_with as c_func, -1);
+  }
+}
+```
+
+---
+
+## 実行してみる
+
+```bash
+> rake build
+checking for cargo... yes
+...
+   Compiling rusty_symbol v0.1.0 (/path/to/rusty_symbol)
+    Finished release [optimized] target(s) in 1.54s
+rusty_symbol 0.1.0 built to pkg/rusty_symbol-0.1.0.gem.
+
+> bin/console
+[1] pry(main)> :heiseirubykaigi.start_with?(:heisei)
+=> true
+[2] pry(main)> :heiseirubykaigi.start_with?(:reiwa)
+=> false
+[3] pry(main)>
+```
+
+---
+
+<!-- _class: lead -->
+# まとめ
+
+---
+
+## まとめ
+- thermiteを使えば簡単にビルドできる
+- RubyはVALUE(一部を除く)
+- SymbolはID
+- Ruby C APIすごい
+- Rustめっちゃ面白い🤪
+
+---
+
+<!-- _class: lead -->
+# おまけ
+
+---
+
+```ruby
+require "rusty_symbol"
+require "benchmark/ips"
+
+class Symbol
+  def _start_with?(*argv)
+    self.to_s.start_with?(*argv.map(&:to_s))
+  end
+
+  def _end_with?(*argv)
+    self.to_s.end_with?(*argv.map(&:to_s))
+  end
+end
+
+Benchmark.ips do |x|
+  x.report "Ruby" do
+    1_000_000.times do
+      :some_symbol._start_with?(:foo, :baz, :bar, :some)
+    end
+  end
+
+  x.report "Rust" do
+    1_000_000.times do
+      :some_symbol.start_with?(:foo, :baz, :bar, :symbol)
+    end
+  end
+
+  x.compare!
+end
+
+```
+
+---
+
+## 全然早くない😭
+
+- Rust Stringに変換するオーバーヘッドの問題?
+```bash
+> bundle exec ruby benchmark.rb
+Warming up --------------------------------------
+                Ruby     1.000  i/100ms
+                Rust     1.000  i/100ms
+Calculating -------------------------------------
+                Ruby      1.391  (± 0.0%) i/s -      7.000  in   5.035024s
+                Rust      1.418  (± 0.0%) i/s -      8.000  in   5.648497s
+
+Comparison:
+                Rust:        1.4 i/s
+                Ruby:        1.4 i/s - 1.02x  slower
+```
+
+---
+
+## Special Thanks
+- 平成Ruby会議01運営のみなさま
+- スライド作成に協力してくれた方々
+  - Kotaro Ambai([@bai2_25](https://twitter.com/bai2_25))
+  - Studyplusの同僚の方々
+
+---
+
+<!-- _class: lead -->
+## ご静聴ありがとうございました
 
